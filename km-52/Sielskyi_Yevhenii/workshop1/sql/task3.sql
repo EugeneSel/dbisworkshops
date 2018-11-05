@@ -4,4 +4,5 @@ task 2
 */
 
 Delete from "User"
-    Where user_login = 'tamerlan'
+    Where user_login = 'tamerlan' and
+    user_login in (select user_login_fk from "Search request")
