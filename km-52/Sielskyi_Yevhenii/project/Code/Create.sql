@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      ORACLE Version 11g                           */
-/* Created on:     17.11.2018 20:37:03                          */
+/* Created on:     18.11.2018 20:29:27                          */
 /*==============================================================*/
 
 
@@ -12,9 +12,6 @@ alter table "Database generation"
 
 alter table "Database generation"
    drop constraint FK_DB_GENERATION_RULE;
-
-alter table "Database generation"
-   drop constraint FK_DB_GENERATION_USER;
 
 alter table "Excel file"
    drop constraint FK_EXCEL_FILE_USER;
@@ -32,8 +29,6 @@ drop table Database cascade constraints;
 drop index "Generated Database_FK";
 
 drop index "Rule of Data Transfer_FK";
-
-drop index "User generates Database_FK";
 
 drop table "Database generation" cascade constraints;
 
@@ -75,20 +70,13 @@ create index "User works with Database_FK" on Database (
 /*==============================================================*/
 create table "Database generation" 
 (
-   user_login_fk        VARCHAR2(30)         not null,
    database_generation_time DATE                 not null,
    new_database_name    VARCHAR2(200)        not null,
-   excel_file_name_fk   VARCHAR2(200),
-   rule_data_address_fk VARCHAR2(50),
-   database_name        VARCHAR2(200),
-   constraint "PK_DATABASE GENERATION" primary key (user_login_fk, database_generation_time, new_database_name)
-);
-
-/*==============================================================*/
-/* Index: "User generates Database_FK"                          */
-/*==============================================================*/
-create index "User generates Database_FK" on "Database generation" (
-   user_login_fk ASC
+   excel_file_name_fk   VARCHAR2(200)        not null,
+   user_login_fk        VARCHAR2(30)         not null,
+   rule_data_address_fk VARCHAR2(50)         not null,
+   database_name_fk     VARCHAR2(200),
+   constraint "PK_DATABASE GENERATION" primary key (database_generation_time, new_database_name, excel_file_name_fk, user_login_fk, rule_data_address_fk)
 );
 
 /*==============================================================*/
@@ -96,6 +84,7 @@ create index "User generates Database_FK" on "Database generation" (
 /*==============================================================*/
 create index "Rule of Data Transfer_FK" on "Database generation" (
    excel_file_name_fk ASC,
+   user_login_fk ASC,
    rule_data_address_fk ASC
 );
 
@@ -103,7 +92,7 @@ create index "Rule of Data Transfer_FK" on "Database generation" (
 /* Index: "Generated Database_FK"                               */
 /*==============================================================*/
 create index "Generated Database_FK" on "Database generation" (
-   database_name ASC
+   database_name_fk ASC
 );
 
 /*==============================================================*/
@@ -115,7 +104,7 @@ create table "Excel file"
    user_login_fk        VARCHAR2(30)         not null,
    excel_file_size      INTEGER              not null,
    excel_file_time      DATE                 not null,
-   constraint "PK_EXCEL FILE" primary key (excel_file_name)
+   constraint "PK_EXCEL FILE" primary key (excel_file_name, user_login_fk)
 );
 
 /*==============================================================*/
@@ -140,16 +129,19 @@ create table Role
 create table Rule 
 (
    excel_file_name_fk   VARCHAR2(200)        not null,
+   user_login_fk        VARCHAR2(30)         not null,
    rule_data_address    VARCHAR2(50)         not null,
+   rule_data_content    VARCHAR2(1000),
    rule_data_type       VARCHAR2(30)         not null,
-   constraint PK_RULE primary key (excel_file_name_fk, rule_data_address)
+   constraint PK_RULE primary key (excel_file_name_fk, user_login_fk, rule_data_address)
 );
 
 /*==============================================================*/
 /* Index: "Excel file data Rule_FK"                             */
 /*==============================================================*/
 create index "Excel file data Rule_FK" on Rule (
-   excel_file_name_fk ASC
+   excel_file_name_fk ASC,
+   user_login_fk ASC
 );
 
 /*==============================================================*/
@@ -176,24 +168,20 @@ alter table Database
       references "User" (user_login);
 
 alter table "Database generation"
-   add constraint FK_DB_GENERATION_DB foreign key (database_name)
+   add constraint FK_DB_GENERATION_DB foreign key (database_name_fk)
       references Database (database_name);
 
 alter table "Database generation"
-   add constraint FK_DB_GENERATION_RULE foreign key (excel_file_name_fk, rule_data_address_fk)
-      references Rule (excel_file_name_fk, rule_data_address);
-
-alter table "Database generation"
-   add constraint FK_DB_GENERATION_USER foreign key (user_login_fk)
-      references "User" (user_login);
+   add constraint FK_DB_GENERATION_RULE foreign key (excel_file_name_fk, user_login_fk, rule_data_address_fk)
+      references Rule (excel_file_name_fk, user_login_fk, rule_data_address);
 
 alter table "Excel file"
    add constraint FK_EXCEL_FILE_USER foreign key (user_login_fk)
       references "User" (user_login);
 
 alter table Rule
-   add constraint FK_RULE_EXCEL_FILE foreign key (excel_file_name_fk)
-      references "Excel file" (excel_file_name);
+   add constraint FK_RULE_EXCEL_FILE foreign key (excel_file_name_fk, user_login_fk)
+      references "Excel file" (excel_file_name, user_login_fk);
 
 alter table "User"
    add constraint FK_USER_ROLE foreign key (role_name_fk)
@@ -233,4 +221,4 @@ alter table Rule
     add constraint data_type_values check (rule_data_type in ('Integer', 'Float', 'Boolean', 'Date', 'Time', 'String'));
     
 alter table "Database generation"
-    add constraint new_database_name_path_match check (new_database_name = database_name);
+    add constraint new_database_name_path_match check (new_database_name = database_name_fk);
