@@ -1,5 +1,49 @@
 set serveroutput on
 
+Create or replace Package user_authorization as
+    Procedure registration(login in "User".user_login%TYPE, pass in "User".user_password%TYPE, email in "User".user_email%TYPE);
+    
+    Function log_in(login in "User".user_login%TYPE, pass in "User".user_password%TYPE)
+    Return "User".user_login%Type;
+End user_authorization;
+/
+Create or replace Package  body user_authorization as
+    Procedure registration(login in "User".user_login%TYPE, pass in "User".user_password%TYPE, email in "User".user_email%TYPE)
+    is
+    Begin
+        If login != output_for_user.get_user(login).user_login and login != NULL Then
+            INSERT INTO "User"(user_login, user_password, role_name_fk, user_email)
+                Values(login, pass, 'Default', email);
+            DBMS_OUTPUT.put_line('\nRegistration successful');
+        Elsif pass = NULL Then
+            DBMS_OUTPUT.put_line('\nPlease, enter the password');
+        Elsif login = NULL Then
+            DBMS_OUTPUT.put_line('\nPlease, enter the login');
+        Else
+            DBMS_OUTPUT.put_line('\nUser with current login already exist');
+        End if;
+    End registration;
+    
+    Function log_in(login in "User".user_login%TYPE, pass in "User".user_password%TYPE)
+    Return "User".user_login%Type
+    is
+    Begin
+        If login = output_for_user.get_user(login).user_login and login != NULL and pass = output_for_user.get_user(login).user_password and pass != NULL Then
+            DBMS_OUTPUT.put_line('\nSuccessfully logged in');
+            Return login;
+        Elsif pass = NULL Then
+            DBMS_OUTPUT.put_line('\nPlease, enter the password');
+            Return Null;
+        Elsif login = NULL Then
+            DBMS_OUTPUT.put_line('\nPlease, enter the login');
+            Return Null;
+        Else
+            DBMS_OUTPUT.put_line('\nYou are not signed on yet. Please, sign on');
+            Return Null;
+        End if;
+    End log_in;
+End user_authorization;
+/
 Create or replace Package output_for_user as
     Type rowExcel is record(
         excel_file_name "Excel file".excel_file_name%TYPE,
