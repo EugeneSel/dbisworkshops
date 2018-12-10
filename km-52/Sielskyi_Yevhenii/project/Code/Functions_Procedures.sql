@@ -11,34 +11,20 @@ Create or replace Package  body user_authorization as
     Procedure registration(login in "User".user_login%TYPE, pass in "User".user_password%TYPE, email in "User".user_email%TYPE)
     is
     Begin
-        If login != output_for_user.get_user(login).user_login and login != NULL Then
-            INSERT INTO "User"(user_login, user_password, role_name_fk, user_email)
-                Values(login, pass, 'Default', email);
-            DBMS_OUTPUT.put_line('\nRegistration successful');
-        Elsif pass = NULL Then
-            DBMS_OUTPUT.put_line('\nPlease, enter the password');
-        Elsif login = NULL Then
-            DBMS_OUTPUT.put_line('\nPlease, enter the login');
-        Else
-            DBMS_OUTPUT.put_line('\nUser with current login already exist');
-        End if;
+        INSERT INTO "User"(user_login, role_name_fk, user_password, user_email)
+            Values(login, 'Default', pass, email);
+        DBMS_OUTPUT.put_line('Registration successful');
     End registration;
     
     Function log_in(login in "User".user_login%TYPE, pass in "User".user_password%TYPE)
     Return "User".user_login%Type
     is
     Begin
-        If login = output_for_user.get_user(login).user_login and login != NULL and pass = output_for_user.get_user(login).user_password and pass != NULL Then
-            DBMS_OUTPUT.put_line('\nSuccessfully logged in');
+        If login = output_for_user.get_user(login).user_login and pass = output_for_user.get_user(login).user_password Then
+            DBMS_OUTPUT.put_line('Successfully logged in');
             Return login;
-        Elsif pass = NULL Then
-            DBMS_OUTPUT.put_line('\nPlease, enter the password');
-            Return Null;
-        Elsif login = NULL Then
-            DBMS_OUTPUT.put_line('\nPlease, enter the login');
-            Return Null;
         Else
-            DBMS_OUTPUT.put_line('\nYou are not signed on yet. Please, sign on');
+            DBMS_OUTPUT.put_line('You are not signed on yet. Please, sign on');
             Return Null;
         End if;
     End log_in;
@@ -55,7 +41,8 @@ Create or replace Package output_for_user as
     Type tableExcel is table of rowExcel;
     
     Function get_excel_file(file_name in "Excel file".excel_file_name%TYPE)
-        Return rowExcel;
+        Return tableExcel
+        Pipelined;
         
     Function get_excel_file_list
         Return tableExcel
@@ -79,8 +66,8 @@ Create or replace Package output_for_user as
         
     Type rowUser is record(
         user_login "User".user_login%TYPE,
-        user_password "User".user_password%TYPE,
         user_role "User".role_name_fk%TYPE,
+        user_password "User".user_password%TYPE,
         user_email "User".user_email%TYPE
     );
     
@@ -96,20 +83,29 @@ End output_for_user;
 /
 Create or replace package body output_for_user as
     Function get_excel_file(file_name in "Excel file".excel_file_name%TYPE)
-        return rowExcel
+        return tableExcel
+        Pipelined
         is
-            file_info rowExcel;
+            is_exist Number(1, 0);
+            
+            Cursor file_list is
+                Select *
+                From "Excel file";
         begin
-            Select * into file_info 
-            from "Excel file" 
-            where excel_file_name = file_name;
+            is_exist := 0;
+        
+            For current_element in file_list
+            Loop
+                If file_name = current_element.excel_file_name Then
+                    Pipe row(current_element);
+                    is_exist := 1;
+                    Exit;
+                End If;
+            End loop;
             
-            If file_name != file_info.excel_file_name Then
-                DBMS_OUTPUT.put_line('\nExcel file with current name does not exist');
-                return NULL;
+            If is_exist = 0 Then
+                DBMS_OUTPUT.put_line('Excel file with current name does not exist');
             End if;
-            
-            return file_info;
         end get_excel_file;
         
     Function get_excel_file_list
@@ -204,43 +200,78 @@ Create or replace Package work_with_excel_file as
     Procedure add_data(file_name in "Excel file".excel_file_name%TYPE, cell_address in Rule.rule_data_address%TYPE, cell_content in Rule.rule_data_content%TYPE, cell_type in Rule.rule_data_type%TYPE);
 End work_with_excel_file;
 /
+
 Create or replace package body work_with_excel_file as
     Procedure update_data(file_name in "Excel file".excel_file_name%TYPE, chosen_cell in Rule.rule_data_address%TYPE, new_data in Rule.rule_data_content%TYPE) is
             rule_list rowRule;
+            
+            Cursor file_list is
+                Select *
+                From "Excel file";
+                
+            is_exist Number(1, 0);
         begin
-            If file_name = output_for_user.get_excel_file(file_name).excel_file_name and file_name != NULL Then
-                Select rule_data_address into rule_list
-                From Rule
-                Where excel_file_name_fk = file_name and rule_data_address = chosen_cell;
-        
-                If chosen_cell = rule_list.data_address Then
-                    Update Rule
-                    Set rule_data_content = new_data
+            is_exist := 0;
+            
+            For current_element in file_list
+            Loop
+                If file_name = current_element.excel_file_name Then
+                    Select rule_data_address into rule_list
+                    From Rule
                     Where excel_file_name_fk = file_name and rule_data_address = chosen_cell;
-                Else
-                    DBMS_OUTPUT.put_line('\nCurrent cell is empty');
+            
+                    If chosen_cell = rule_list.data_address Then
+                        Update Rule
+                        Set rule_data_content = new_data
+                        Where excel_file_name_fk = file_name and rule_data_address = chosen_cell;
+                    Else
+                        DBMS_OUTPUT.put_line('Current cell is empty');
+                    End if;
+                    
+                    is_exist := 1;
+                    DBMS_OUTPUT.put_line('Updated successfully');
+                    Exit;
                 End if;
-            Else
-                DBMS_OUTPUT.put_line('\nCurrent excel file does not exist');
+            End loop;
+            
+            If is_exist = 0 Then
+                DBMS_OUTPUT.put_line('Current excel file does not exist');
             End if;
         end update_data;
         
     Procedure delete_data(file_name in "Excel file".excel_file_name%TYPE, chosen_cell in Rule.rule_data_address%TYPE) is
             rule_list rowRule;
+            
+            Cursor file_list is
+                Select *
+                From "Excel file";
+                
+            is_exist Number(1, 0);
         begin
-            If file_name = output_for_user.get_excel_file(file_name).excel_file_name and file_name != NULL Then
-                Select rule_data_address into rule_list
-                From Rule
-                Where excel_file_name_fk = file_name and rule_data_address = chosen_cell;
-        
-                If chosen_cell = rule_list.data_address Then
-                    Delete from Rule
+            is_exist := 0;
+            
+            For current_element in file_list
+            Loop
+                If file_name = current_element.excel_file_name Then
+                    Select rule_data_address into rule_list
+                    From Rule
                     Where excel_file_name_fk = file_name and rule_data_address = chosen_cell;
-                Else
-                    DBMS_OUTPUT.put_line('\nCurrent cell is already empty');
+            
+                    If chosen_cell = rule_list.data_address Then
+                        Delete from Rule
+                        Where excel_file_name_fk = file_name and rule_data_address = chosen_cell;
+                    Else
+                        DBMS_OUTPUT.put_line('Current cell is already empty');
+                    End if;
+                    
+                    is_exist := 1;
+                    DBMS_OUTPUT.put_line('Deleted successfully');
+                    Exit;
                 End if;
-            Else
-                DBMS_OUTPUT.put_line('\nCurrent excel file does not exist');
+            End loop;
+            
+            If is_exist = 0 Then
+                DBMS_OUTPUT.put_line('Current excel file does not exist');
             End if;
         end delete_data;
         
@@ -249,31 +280,50 @@ Create or replace package body work_with_excel_file as
                 Select rule_data_address 
                 From Rule
                 Where excel_file_name_fk = file_name;
-            current_user_login Rule.user_login_fk%TYPE;
-            is_empty Number(1, 0);
-        begin
-            If file_name = output_for_user.get_excel_file(file_name).excel_file_name and file_name != NULL Then
-                Select user_login_fk into current_user_login
-                From "Excel file"
-                Where excel_file_name = file_name;
-            
-                is_empty := 0;
-                For current_element in rule_list
-                Loop
-                    If cell_address = current_element.rule_data_address Then
-                        is_empty := 1;
-                        exit;
-                    End if;
-                End loop;
                 
-                If is_empty = 1 Then
-                    Insert Into Rule (excel_file_name_fk, user_login_fk, rule_data_address, rule_data_content, rule_data_type)
-                        Values(file_name, current_user_login, cell_address, cell_content, cell_type);
-                Else
-                    DBMS_OUTPUT.put_line('\nCurrent cell is not empty');
+            current_user_login Rule.user_login_fk%TYPE;
+            
+            is_empty Number(1, 0);
+            
+            Cursor file_list is
+                Select *
+                From "Excel file";
+                
+            is_exist Number(1, 0);
+        begin
+            is_exist := 0;
+            
+            For current_element in file_list
+            Loop
+                If file_name = current_element.excel_file_name Then
+                    Select user_login_fk into current_user_login
+                    From "Excel file"
+                    Where excel_file_name = file_name;
+                
+                    is_empty := 0;
+                    For current_element in rule_list
+                    Loop
+                        If cell_address = current_element.rule_data_address Then
+                            is_empty := 1;
+                            exit;
+                        End if;
+                    End loop;
+                    
+                    If is_empty = 1 Then
+                        Insert Into Rule (excel_file_name_fk, user_login_fk, rule_data_address, rule_data_content, rule_data_type)
+                            Values(file_name, current_user_login, cell_address, cell_content, cell_type);
+                    Else
+                        DBMS_OUTPUT.put_line('Current cell is not empty');
+                    End if;
+                    
+                    is_exist := 1;
+                    DBMS_OUTPUT.put_line('Inserted successfully');
+                    Exit;
                 End if;
-            Else
-                DBMS_OUTPUT.put_line('\nCurrent excel file does not exist');
+            End loop;
+            
+            If is_exist = 0 Then
+                DBMS_OUTPUT.put_line('Current excel file does not exist');
             End if;
         end add_data;
 end work_with_excel_file;
@@ -313,36 +363,53 @@ Create or replace package body db_generation as
             Select rule_data_address 
             From Rule
             Where excel_file_name_fk = file_name;
-    begin
-        If file_name = output_for_user.get_excel_file(file_name).excel_file_name and file_name != NULL Then
-            Select user_login_fk into current_user_login
-            From "Excel file"
-            Where excel_file_name = file_name;
+            
+            Cursor file_list is
+                Select *
+                From "Excel file";
                 
-            is_empty := 0;
-            For current_element in rule_list
+            is_exist Number(1, 0);
+        begin
+            is_exist := 0;
+            
+            For current_element in file_list
             Loop
-                If cell_address = current_element.rule_data_address Then
-                    is_empty := 1;
-                    exit;
+                If file_name = current_element.excel_file_name Then
+                    Select user_login_fk into current_user_login
+                    From "Excel file"
+                    Where excel_file_name = file_name;
+                        
+                    is_empty := 0;
+                    For current_element in rule_list
+                    Loop
+                        If cell_address = current_element.rule_data_address Then
+                            is_empty := 1;
+                            exit;
+                        End if;
+                    End loop;
+                    
+                    If is_empty = 1 Then
+                        If db_name = output_for_user.get_db(db_name).db_name and db_name != NULL Then
+                            Insert Into "Database generation" (excel_file_name_fk, user_login_fk, rule_data_address_fk, database_generation_time, new_database_name, database_name_fk)
+                                Values(file_name, current_user_login, cell_address, CURRENT_TIMESTAMP, db_name, db_name);
+                        Else
+                            Insert Into "Database generation" (excel_file_name_fk, user_login_fk, rule_data_address_fk, database_generation_time, new_database_name, database_name_fk)
+                                Values(file_name, current_user_login, cell_address, CURRENT_TIMESTAMP, db_name, '');
+                        End if;
+                    Else
+                        DBMS_OUTPUT.put_line('Current cell is empty');
+                    End if;
+                    
+                    is_exist := 1;
+                    DBMS_OUTPUT.put_line('Database created successfully');
+                    Exit;
                 End if;
             End loop;
             
-            If is_empty = 1 Then
-                If db_name = output_for_user.get_db(db_name).db_name and db_name != NULL Then
-                    Insert Into "Database generation" (excel_file_name_fk, user_login_fk, rule_data_address_fk, database_generation_time, new_database_name, database_name_fk)
-                        Values(file_name, current_user_login, cell_address, CURRENT_TIMESTAMP, db_name, db_name);
-                Else
-                    Insert Into "Database generation" (excel_file_name_fk, user_login_fk, rule_data_address_fk, database_generation_time, new_database_name, database_name_fk)
-                        Values(file_name, current_user_login, cell_address, CURRENT_TIMESTAMP, db_name, '');
-                End if;
-            Else
-                DBMS_OUTPUT.put_line('\nCurrent cell is empty');
+            If is_exist = 0 Then
+                DBMS_OUTPUT.put_line('Current excel file does not exist');
             End if;
-        Else
-            DBMS_OUTPUT.put_line('\nCurrent excel file does not exist');
-        End if;
-    end choose_data;
+        end choose_data;
     
     Function create_new_db(db_name in "Database generation".new_database_name%TYPE)
     Return tableDBGeneration
