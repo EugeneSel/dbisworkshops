@@ -57,9 +57,11 @@ def login():
                     break
 
         if not is_exist:
+            session.pop('login', None)
             return render_template('login.html', form=login_form, message='User with current login does not exists.')
         elif not correct_pass:
-            return render_template('login.html', form=login_form, message='You entered wrong password. Forgot your password? Try to remember!!!')
+            session.pop('login', None)
+            return render_template('login.html', form=login_form, message='You entered wrong passsword. Forgot your password? Try to remember!!!')
         else:
             if login_form.validate():
                 session['login'] = request.form['login']
@@ -69,6 +71,7 @@ def login():
                 response.set_cookie('login', request.form['login'], expires=expires)
                 return response
             else:
+                session.pop('login', None)
                 return render_template('login.html', form=login_form)
     else:
         if 'login' in session:
@@ -89,6 +92,7 @@ def registration():
     userList = getUserList()
     if request.method == 'POST':
         if not reg_form.validate():
+            session.pop('login', None)
             return render_template('registration.html', form=reg_form)
         else:
             is_unique = True
@@ -98,6 +102,7 @@ def registration():
                     break
 
             if not is_unique:
+                session.pop('login', None)
                 return render_template('registration.html', form=reg_form, is_unique='User with current login already exists.')
             else:
                 user_login, message = regUser(
@@ -107,6 +112,7 @@ def registration():
                 )
 
                 if message != 'Operation successful':
+                    session.pop('login', None)
                     return render_template('registration.html', form=reg_form, message=message)
 
                 session['login'] = user_login
@@ -116,6 +122,7 @@ def registration():
                 response.set_cookie('login', user_login, expires=expires)
                 return response
 
+    session.pop('login', None)
     return render_template('registration.html', form=reg_form)
 
 
@@ -202,6 +209,7 @@ def excel_file():
                 return render_template('excel_file.html', update_form=update_form, delete_form=delete_form, filter_form=filter_form,
                                        login=login, data=dataList, file_name=file_name, del_message='You didn`t choose any cell.')
             else:
+                print(dataList[int(request.form['data_list'])][2])
                 message = deleteData(
                     file_name,
                     dataList[int(request.form['data_list'])][2]
@@ -295,7 +303,7 @@ def databases():
                     return render_template('database.html', add_form=add_form, delete_form=delete_form,
                                            login=login, add_message=message, db_name='')
                 else:
-                    return render_template('database.html', add_form=add_form, delete_form=delete_form,
+                        return render_template('database.html', add_form=add_form, delete_form=delete_form,
                                            login=login, add_message="Database with current name already exists.")
         elif delete_form.delete.data or delete_form.show_data.data:
             if not delete_form.validate():
