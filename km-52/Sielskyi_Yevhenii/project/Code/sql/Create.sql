@@ -209,10 +209,10 @@ alter table "User"
     add constraint user_login_length check (length(user_login) >= 4);
 
 alter table "User"
-    add constraint user_login_content check (Regexp_like(user_login, '[A-Za-z0-9_]'));
+    add constraint user_login_content check (Regexp_like(user_login, '[A-Za-z0-9_]{1,}'));
     
 alter table "User"
-    add constraint user_password_content check (Regexp_like(user_password, '[A-Za-z0-9]'));
+    add constraint user_password_content check (Regexp_like(user_password, '[A-Za-z0-9]{1,}'));
     
 alter table "User"
     add constraint user_email_content check (Regexp_like(user_email, '[a-z0-9.@]'));
@@ -224,19 +224,19 @@ alter table Rule
     add constraint data_type_values check (rule_data_type in ('Integer', 'Float', 'Boolean', 'Date', 'Time', 'String'));
     
 alter table "Excel file"
-    add constraint excel_file_name_content check (Regexp_like(excel_file_name, '([A-Za-z]:\\|\\){1}([A-Za-z0-9-_]{1,}\\|[A-Za-z0-9-_]{1,}){1,}'));
+    add constraint excel_file_name_content check (Regexp_like(excel_file_name, '(?:[A-Za-z]\:\\|\\)([A-Za-z0-9-_]\\|[A-Za-z0-9-_]){1,}[A-Za-z0-9-_]$'));
     
 alter table "Excel file"
     add constraint excel_file_name_length check (length(excel_file_name) <= 30);
     
 alter table Database
-    add constraint database_name_content check (Regexp_like(database_name, '([A-Za-z]:\\|\\){1}([A-Za-z0-9-_]{1,}\\|[A-Za-z0-9-_]{1,}){1,}'));
+    add constraint database_name_content check (Regexp_like(database_name, '(?:[A-Za-z]\:\\|\\)([A-Za-z0-9-_]\\|[A-Za-z0-9-_]){1,}[A-Za-z0-9-_]$'));
     
 alter table Database
     add constraint database_name_length check (length(database_name) <= 30);
     
 alter table "Database generation"
-    add constraint new_database_name_content check (Regexp_like(new_database_name, '([A-Za-z]:\\|\\){1}([A-Za-z0-9-_]{1,}\\|[A-Za-z0-9-_]{1,}){1,}'));
+    add constraint new_database_name_content check (Regexp_like(new_database_name, '(?:[A-Za-z]\:\\|\\)([A-Za-z0-9-_]\\|[A-Za-z0-9-_]){1,}[A-Za-z0-9-_]$'));
     
 alter table "Database generation"
     add constraint new_database_name_length check (length(new_database_name) <= 30);
